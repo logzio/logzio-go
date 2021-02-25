@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/beeker1121/goque"
-	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/v3/disk"
 	"go.uber.org/atomic"
 )
 
@@ -83,7 +83,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 
 	tlsConfig := &tls.Config{}
 	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
+		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
 	}
 	// in case server side is sleeping - wait 10s instead of waiting for him to wake up

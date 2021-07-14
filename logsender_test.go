@@ -597,6 +597,42 @@ func TestLogzioSender_Unauth(t *testing.T) {
 	}
 }
 
+func TestLogzioSender_CountDropped(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	l, err := New(
+		"fake-token",
+		SetDebug(os.Stderr),
+		SetUrl("http://localhost:12345"),
+		SetDrainDiskThreshold(0),
+		SetDrainDuration(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(l.dir)
+	l.Send([]byte("blah"))
+	l.Send([]byte("blah"))
+	l.Send([]byte("blah"))
+	if l.droppedLogs != 3 {
+		t.Fatalf("items should have been dropped")
+	}
+	l.diskThreshold = 95
+	l.Send([]byte("blah"))
+	l.Send([]byte("blah"))
+	l.Drain()
+	l.url = ts.URL
+	l.Drain()
+	if l.droppedLogs != 0 {
+		t.Fatalf("should be 0 after export")
+	}
+	item, err := l.queue.Dequeue()
+	if item != nil {
+		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
+	}
+}
+
 func TestLogzioSender_ThresholdLimit(t *testing.T) {
 	l, err := New(
 		"fake-token",
@@ -609,8 +645,6 @@ func TestLogzioSender_ThresholdLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(l.dir)
-	<-time.After(l.checkDiskDuration + time.Second*3)
-	fmt.Printf("flag is %v", l.fullDisk)
 	l.Send([]byte("blah"))
 	item, err := l.queue.Dequeue()
 	if item != nil {
@@ -678,7 +712,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 func TestLogzioSender_E2E(t *testing.T) {
 	l, err := New("McvJQAtOrFUZQRFMrvSqnKSEJhjjFZHz",
 		SetInMemoryQueue(true),
-		SetUrl("https://webhook.site/13e43c31-321b-481c-9972-d15fa260cd93?token=fake-token"),
+		//SetUrl("https://webhook.site/13e43c31-321b-481c-9972-d15fa260cd93?token=fake-token"),
 		SetDrainDuration(time.Second*5),
 		SetDebug(os.Stderr),
 	)

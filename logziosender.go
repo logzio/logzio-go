@@ -61,13 +61,11 @@ type LogzioSender struct {
 	debug          io.Writer
 	diskThreshold  float32
 	checkDiskSpace bool
-	//fullDisk          bool
-	checkDiskDuration time.Duration
-	dir               string
-	httpClient        *http.Client
-	httpTransport     *http.Transport
-	compress          bool
-	droppedLogs       int
+	dir            string
+	httpClient     *http.Client
+	httpTransport  *http.Transport
+	compress       bool
+	droppedLogs    int
 	// In memory Queue
 	inMemoryQueue    bool
 	inMemoryCapacity uint64
@@ -87,10 +85,8 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		dir:            fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
 		diskThreshold:  defaultDiskThreshold,
 		checkDiskSpace: defaultCheckDiskSpace,
-		//fullDisk:          false,
-		checkDiskDuration: 5 * time.Second,
-		compress:          true,
-		droppedLogs:       0,
+		compress:       true,
+		droppedLogs:    0,
 		// In memory queue
 		inMemoryQueue:    false,
 		inMemoryCapacity: defaultQueueMaxLength,
@@ -214,7 +210,6 @@ func SetDrainDiskThreshold(th int) SenderOptionFunc {
 }
 
 func (l *LogzioSender) isEnoughDiskSpace() bool {
-	//<-time.After(l.checkDiskDuration)
 	if l.checkDiskSpace {
 		diskStat, err := disk.Usage(l.dir)
 		if err != nil {

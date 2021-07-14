@@ -217,6 +217,7 @@ func TestLogzioSender_InMemoryDelayStart(t *testing.T) {
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetInMemoryQueue(true),
+		SetCompress(false),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -255,7 +256,7 @@ func TestLogzioSender_InMemoryUnauth(t *testing.T) {
 	l, err := New(
 		"fake-token",
 		SetDebug(os.Stderr),
-		//SetTempDirectory(tmp),
+		SetCompress(false),
 		SetDrainDuration(time.Minute),
 		SetUrl(ts.URL),
 		SetInMemoryQueue(true),
@@ -273,6 +274,7 @@ func TestLogzioSender_InMemoryUnauth(t *testing.T) {
 	if len(sentMsg) != 5 {
 		t.Fatalf("Wrong len of msg %d", len(sentMsg))
 	}
+
 	if sentMsg != "blah\n" {
 		t.Fatalf("%s != %s ", string(sent), string(sentMsg))
 	}
@@ -292,6 +294,7 @@ func TestLogzioSender_InMemoryWrite(t *testing.T) {
 		SetDebug(os.Stderr),
 		SetDrainDuration(time.Minute),
 		SetUrl(ts.URL),
+		SetCompress(false),
 		SetInMemoryQueue(true),
 	)
 	if err != nil {
@@ -389,6 +392,7 @@ func TestLogzioSender_Send(t *testing.T) {
 
 	l, err := New("fake-token",
 		SetUrl(ts.URL),
+		SetCompress(false),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -417,6 +421,7 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	l, err := New(
 		"fake-token",
 		SetDebug(os.Stderr),
+		SetCompress(false),
 		SetUrl("http://localhost:12345"),
 	)
 	if err != nil {
@@ -453,6 +458,7 @@ func TestLogzioSender_TmpDir(t *testing.T) {
 		"fake-token",
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
+		SetCompress(false),
 		SetDrainDuration(time.Minute),
 		SetUrl(ts.URL),
 	)
@@ -486,6 +492,7 @@ func TestLogzioSender_Write(t *testing.T) {
 		"fake-token",
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
+		SetCompress(false),
 		SetDrainDuration(time.Minute),
 		SetUrl(ts.URL),
 	)
@@ -544,9 +551,7 @@ func TestLogzioSender_RestoreQueue(t *testing.T) {
 	if string(item.Value) != "blah\n" {
 		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
 	}
-	if item.ID != 2 {
-		//t.Fatalf("Unexpect ID number - %s", string(item.ID))
-	}
+
 }
 
 func TestLogzioSender_Unauth(t *testing.T) {
@@ -568,6 +573,7 @@ func TestLogzioSender_Unauth(t *testing.T) {
 		"fake-token",
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
+		SetCompress(false),
 		SetDrainDuration(time.Minute),
 		SetUrl(ts.URL),
 	)
@@ -670,8 +676,9 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 
 //E2E test
 func TestLogzioSender_E2E(t *testing.T) {
-	l, err := New("",
+	l, err := New("McvJQAtOrFUZQRFMrvSqnKSEJhjjFZHz",
 		SetInMemoryQueue(true),
+		SetUrl("https://webhook.site/13e43c31-321b-481c-9972-d15fa260cd93?token=fake-token"),
 		SetDrainDuration(time.Second*5),
 		SetDebug(os.Stderr),
 	)

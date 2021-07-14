@@ -53,7 +53,7 @@ func (c *ConcurrentQueue) Enqueue(data []byte) (*Item, error) {
 type Item = queue.Item
 
 func (c *ConcurrentQueue) Dequeue() (*Item, error) {
-	for c.isEmpty() {
+	if c.isEmpty() {
 		return nil, ErrEmpty
 	}
 	data := <-c.queue

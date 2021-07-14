@@ -16,6 +16,7 @@ package logzio
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"fmt"
 	"github.com/beeker1121/goque"
@@ -65,6 +66,7 @@ type LogzioSender struct {
 	dir               string
 	httpClient        *http.Client
 	httpTransport     *http.Transport
+	compress          bool
 	// In memory Queue
 	inMemoryQueue    bool
 	inMemoryCapacity uint64
@@ -86,6 +88,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		checkDiskSpace:    defaultCheckDiskSpace,
 		fullDisk:          false,
 		checkDiskDuration: 5 * time.Second,
+		compress:          true,
 		// In memory queue
 		inMemoryQueue:    false,
 		inMemoryCapacity: defaultQueueMaxLength,
@@ -140,6 +143,13 @@ func SetlogCountLimit(limit int) SenderOptionFunc {
 func SetinMemoryCapacity(size uint64) SenderOptionFunc {
 	return func(l *LogzioSender) error {
 		l.inMemoryCapacity = size
+		return nil
+	}
+}
+
+func SetCompress(b bool) SenderOptionFunc {
+	return func(l *LogzioSender) error {
+		l.compress = b
 		return nil
 	}
 }
@@ -259,8 +269,14 @@ func (l *LogzioSender) Stop() {
 	l.Drain()
 }
 
-func (l *LogzioSender) tryToSendLogs() int {
-	resp, err := l.httpClient.Post(l.url, "text/plain", l.buf)
+func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) int {
+	req, err := http.NewRequest("POST", l.url, &data)
+	req.Header.Add("Content-Type", "text/plain")
+	req.Header.Add("logzio-shipper", fmt.Sprintf("logzio-go/v1.0.0/%d/0", attempt))
+	if c {
+		req.Header.Add("Content-Encoding", "gzip")
+	}
+	resp, err := l.httpClient.Do(req)
 	if err != nil {
 		//l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
 		return httpError
@@ -273,6 +289,20 @@ func (l *LogzioSender) tryToSendLogs() int {
 		l.debugLog("Error reading response body: %v", err)
 	}
 	return statusCode
+
+}
+
+func (l *LogzioSender) tryToSendLogs(attempt int) int {
+	if l.compress {
+		var compressedBuf bytes.Buffer
+		compr := gzip.NewWriter(&compressedBuf)
+		compr.Write(l.buf.Bytes())
+		compr.Close()
+		return l.makeHttpRequest(compressedBuf, attempt, true)
+	} else {
+		return l.makeHttpRequest(*l.buf, attempt, false)
+
+	}
 }
 
 func (l *LogzioSender) drainTimer() {
@@ -327,7 +357,7 @@ func (l *LogzioSender) Drain() {
 					time.Sleep(backOff)
 					backOff *= 2
 				}
-				statusCode := l.tryToSendLogs()
+				statusCode := l.tryToSendLogs(attempt)
 				if l.shouldRetry(statusCode) {
 					toBackOff = true
 					if attempt == (sendRetries - 1) {

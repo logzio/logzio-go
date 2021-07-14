@@ -710,7 +710,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 
 //E2E test
 func TestLogzioSender_E2E(t *testing.T) {
-	l, err := New("McvJQAtOrFUZQRFMrvSqnKSEJhjjFZHz",
+	l, err := New("",
 		SetInMemoryQueue(true),
 		//SetUrl("https://webhook.site/13e43c31-321b-481c-9972-d15fa260cd93?token=fake-token"),
 		SetDrainDuration(time.Second*5),

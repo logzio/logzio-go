@@ -16,6 +16,6 @@ jobs:
           go-version: 1.15
       - name: Test
         run: |
-          go test -v -covermode=atomic -coverprofile=coverage.out -race
+          go test -v -covermode=atomic -coverprofile=coverage.out
           cd inMemoryQueue
-          go test -v -covermode=atomic -coverprofile=coverage.out -race
+          go test -v -covermode=atomic -coverprofile=coverage.out

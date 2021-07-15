@@ -209,6 +209,11 @@ func SetDrainDiskThreshold(th int) SenderOptionFunc {
 		return nil
 	}
 }
+func (l *LogzioSender) getIsOpen() bool {
+	l.mux.Lock()
+	defer l.mux.Unlock()
+	return l.isOpen
+}
 
 func (l *LogzioSender) isEnoughDiskSpace() bool {
 	if l.checkDiskSpace {
@@ -258,7 +263,9 @@ func (l *LogzioSender) Send(payload []byte) error {
 }
 
 func (l *LogzioSender) start() {
+	l.mux.Lock()
 	l.isOpen = true
+	l.mux.Unlock()
 	l.drainTimer()
 }
 
@@ -266,7 +273,9 @@ func (l *LogzioSender) start() {
 func (l *LogzioSender) Stop() {
 	defer l.queue.Close()
 	l.Drain()
+	l.mux.Lock()
 	l.isOpen = false
+	l.mux.Unlock()
 }
 
 func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) int {
@@ -314,7 +323,7 @@ func (l *LogzioSender) tryToSendLogs(attempt int) int {
 }
 
 func (l *LogzioSender) drainTimer() {
-	for l.isOpen {
+	for l.getIsOpen() {
 		time.Sleep(l.drainDuration)
 		l.Drain()
 	}

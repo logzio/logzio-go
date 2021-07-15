@@ -15,11 +15,7 @@
 package logzio
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/tidwall/sjson"
-	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -711,73 +707,73 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 	}
 }
 
-//E2E test
-func TestLogzioSender_E2E(t *testing.T) {
-	l, err := New("",
-		SetInMemoryQueue(true),
-		SetDrainDuration(time.Second*5),
-		SetDebug(os.Stderr),
-	)
-	if err != nil {
-		panic(err)
-	}
-	randomString := fmt.Sprint(rand.Int())
-	msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", randomString)
-	l.debugLog("Sending 500 logs...\n")
-	for i := 0; i < 500; i++ {
-		err := l.Send([]byte(msg))
-		if err != nil {
-			panic(err)
-		}
-	}
-	<-time.After(l.drainDuration)
-
-	apiQuery := `{
-		"query": {
-			"bool": {
-				"must": [{
-	"query_string": {
-	"query": ""
-	}
-	},
-	{
-	"range": {
-	"@timestamp": {
-	"gte": "now-5m",
-	"lte": "now"
-	}
-	}
-	}
-	]
-	}
-	},
-	"size": 1000,
-	"from": 0
-	}`
-
-	url := "https://api.logz.io/v1/search"
-	queryString := fmt.Sprintf("message:%s", randomString)
-	query, _ := sjson.Set(apiQuery, "query.bool.must.0.query_string.query", queryString)
-	var jsonStr = []byte(query)
-
-	l.debugLog("Waiting 40 seconds for ingestion\n")
-	time.Sleep(time.Second * 40)
-
-	fmt.Println("URL:>", url)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	req.Header.Set("X-API-TOKEN", "6c94fd02-8e34-4f0c-bc00-9a42e35171fc")
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-
-	fmt.Println("response Status:", resp.Status)
-	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))
-	l.Stop() //logs are buffered on disk. Stop will drain the buffer
-}
+////E2E test
+//func TestLogzioSender_E2E(t *testing.T) {
+//	l, err := New("",
+//		SetInMemoryQueue(true),
+//		SetDrainDuration(time.Second*5),
+//		SetDebug(os.Stderr),
+//	)
+//	if err != nil {
+//		panic(err)
+//	}
+//	randomString := fmt.Sprint(rand.Int())
+//	msg := fmt.Sprintf("{ \"%s\": \"%s\"}", "message", randomString)
+//	l.debugLog("Sending 500 logs...\n")
+//	for i := 0; i < 500; i++ {
+//		err := l.Send([]byte(msg))
+//		if err != nil {
+//			panic(err)
+//		}
+//	}
+//	<-time.After(l.drainDuration)
+//
+//	apiQuery := `{
+//		"query": {
+//			"bool": {
+//				"must": [{
+//	"query_string": {
+//	"query": ""
+//	}
+//	},
+//	{
+//	"range": {
+//	"@timestamp": {
+//	"gte": "now-5m",
+//	"lte": "now"
+//	}
+//	}
+//	}
+//	]
+//	}
+//	},
+//	"size": 1000,
+//	"from": 0
+//	}`
+//
+//	url := "https://api.logz.io/v1/search"
+//	queryString := fmt.Sprintf("message:%s", randomString)
+//	query, _ := sjson.Set(apiQuery, "query.bool.must.0.query_string.query", queryString)
+//	var jsonStr = []byte(query)
+//
+//	l.debugLog("Waiting 40 seconds for ingestion\n")
+//	time.Sleep(time.Second * 40)
+//
+//	fmt.Println("URL:>", url)
+//	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+//	req.Header.Set("X-API-TOKEN", "6c94fd02-8e34-4f0c-bc00-9a42e35171fc")
+//	req.Header.Set("Content-Type", "application/json")
+//
+//	client := &http.Client{}
+//	resp, err := client.Do(req)
+//	if err != nil {
+//		panic(err)
+//	}
+//	defer resp.Body.Close()
+//
+//	fmt.Println("response Status:", resp.Status)
+//	fmt.Println("response Headers:", resp.Header)
+//	body, _ := ioutil.ReadAll(resp.Body)
+//	fmt.Println("response Body:", string(body))
+//	l.Stop() //logs are buffered on disk. Stop will drain the buffer
+//}

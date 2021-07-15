@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/beeker1121/goque"
 	"github.com/logzio/logzio-go/inMemoryQueue"
-	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/v3/disk"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -66,6 +66,7 @@ type LogzioSender struct {
 	httpTransport  *http.Transport
 	compress       bool
 	droppedLogs    int
+	isOpen         bool
 	// In memory Queue
 	inMemoryQueue    bool
 	inMemoryCapacity uint64
@@ -87,6 +88,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		checkDiskSpace: defaultCheckDiskSpace,
 		compress:       true,
 		droppedLogs:    0,
+		isOpen:         false,
 		// In memory queue
 		inMemoryQueue:    false,
 		inMemoryCapacity: defaultQueueMaxLength,
@@ -123,7 +125,6 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 			return nil, err
 		}
 		l.queue = q
-		//go l.isEnoughDiskSpace()
 	}
 	go l.start()
 	return l, nil
@@ -257,6 +258,7 @@ func (l *LogzioSender) Send(payload []byte) error {
 }
 
 func (l *LogzioSender) start() {
+	l.isOpen = true
 	l.drainTimer()
 }
 
@@ -264,6 +266,7 @@ func (l *LogzioSender) start() {
 func (l *LogzioSender) Stop() {
 	defer l.queue.Close()
 	l.Drain()
+	l.isOpen = false
 }
 
 func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) int {
@@ -311,7 +314,7 @@ func (l *LogzioSender) tryToSendLogs(attempt int) int {
 }
 
 func (l *LogzioSender) drainTimer() {
-	for {
+	for l.isOpen {
 		time.Sleep(l.drainDuration)
 		l.Drain()
 	}

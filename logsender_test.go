@@ -631,6 +631,7 @@ func TestLogzioSender_CountDropped(t *testing.T) {
 	if item != nil {
 		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
 	}
+	l.Stop()
 }
 
 func TestLogzioSender_ThresholdLimit(t *testing.T) {
@@ -650,6 +651,7 @@ func TestLogzioSender_ThresholdLimit(t *testing.T) {
 	if item != nil {
 		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
 	}
+	l.Stop()
 }
 
 func TestLogzioSender_ThresholdLimitWithoutCheck(t *testing.T) {
@@ -671,6 +673,7 @@ func TestLogzioSender_ThresholdLimitWithoutCheck(t *testing.T) {
 	if item == nil {
 		t.Fatalf("Unexpect item in the queue - %s", string(item.Value))
 	}
+	l.Stop()
 
 }
 
@@ -712,7 +715,6 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 func TestLogzioSender_E2E(t *testing.T) {
 	l, err := New("",
 		SetInMemoryQueue(true),
-		//SetUrl("https://webhook.site/13e43c31-321b-481c-9972-d15fa260cd93?token=fake-token"),
 		SetDrainDuration(time.Second*5),
 		SetDebug(os.Stderr),
 	)

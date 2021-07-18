@@ -155,7 +155,7 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 * [logzio-java-sender](https://github.com/logzio/logzio-java-sender)
 
 
-## Cahngelog
+## Changelog
 - v1.0.1
     - Add gzip compression
     - Add option for im Memory queue

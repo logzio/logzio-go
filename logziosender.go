@@ -40,7 +40,7 @@ const (
 	defaultDrainDuration  = 5 * time.Second
 	defaultDiskThreshold  = 95.0 // represent % of the disk
 	defaultCheckDiskSpace = true
-	defaultQueueMaxLength = 9 * 1024 * 1024 // 9 mb
+	defaultQueueMaxLength = 20 * 1024 * 1024 // 20 mb
 	defaultMaxLogCount    = 500000
 
 	httpError = -1

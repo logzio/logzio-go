@@ -158,4 +158,4 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 ## Changelog
 - v1.0.1
     - Add gzip compression
-    - Add option for im Memory queue
+    - Add option for in Memory queue

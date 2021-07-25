@@ -7,6 +7,6 @@ type Item = queue.Item
 type genericQueue interface {
 	Enqueue([]byte) (*Item, error)
 	Dequeue() (*Item, error)
-	Close()
+	Close() error
 	Length() uint64
 }

@@ -81,7 +81,7 @@ func (c *ConcurrentQueue) IsFull() bool {
 	return isFull
 }
 
-func (c *ConcurrentQueue) Close() {
+func (c *ConcurrentQueue) Close() error {
 	var empty []byte
 	for empty != nil {
 		empty, _ := c.Dequeue()
@@ -90,4 +90,5 @@ func (c *ConcurrentQueue) Close() {
 		}
 	}
 	close(c.queue)
+	return nil
 }

@@ -46,7 +46,7 @@ func (c *ConcurrentQueue) Enqueue(data []byte) (*Item, error) {
 		c.lock.Unlock()
 		return item, nil
 	}
-	fmt.Printf("Queue is full dropping logs\n")
+	fmt.Printf("inMemoryQueue.go: queue is full, dropping logs. max length: %d \n", c.maxLength)
 	return nil, nil
 }
 

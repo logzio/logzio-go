@@ -1,6 +1,8 @@
 *.orig
 gtoggl/gtoggl
 test
+
+*.txt
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm
 
 ## Directory-based project format

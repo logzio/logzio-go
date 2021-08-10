@@ -733,7 +733,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 
 //E2E test
 func TestLogzioSender_E2E(t *testing.T) {
-	l, err := New("McvJQAtOrFUZQRFMrvSqnKSEJhjjFZHz",
+	l, err := New("",
 		"fake",
 		SetInMemoryQueue(true),
 		SetUrl("https://listener.logz.io:8071"),

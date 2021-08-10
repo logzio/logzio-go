@@ -58,6 +58,7 @@ type LogzioSender struct {
 	mux            sync.Mutex
 	token          string
 	url            string
+	logzioType     string
 	debug          io.Writer
 	diskThreshold  float32
 	checkDiskSpace bool
@@ -77,11 +78,12 @@ type LogzioSender struct {
 type SenderOptionFunc func(*LogzioSender) error
 
 // New creates a new Logzio sender with a token and options
-func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
+func New(token string, logzioType string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	l := &LogzioSender{
 		buf:            bytes.NewBuffer(make([]byte, maxSize)),
 		drainDuration:  defaultDrainDuration,
-		url:            fmt.Sprintf("%s/?token=%s", defaultHost, token),
+		url:            fmt.Sprintf("%s/?token=%s?type=%s", defaultHost, token, logzioType),
+		logzioType:     logzioType,
 		token:          token,
 		dir:            fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
 		diskThreshold:  defaultDiskThreshold,
@@ -172,7 +174,7 @@ func SetTempDirectory(dir string) SenderOptionFunc {
 // SetUrl set the url which maybe different from the defaultUrl
 func SetUrl(url string) SenderOptionFunc {
 	return func(l *LogzioSender) error {
-		l.url = fmt.Sprintf("%s/?token=%s", url, l.token)
+		l.url = fmt.Sprintf("%s/?token=%s&type=%s", url, l.token, l.logzioType)
 		l.debugLog("logziosender.go: Setting url to %s\n", l.url)
 		return nil
 	}

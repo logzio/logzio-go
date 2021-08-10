@@ -1,0 +1,174 @@
+package inMemoryQueue
+
+import (
+	queue "github.com/beeker1121/goque"
+	"go.uber.org/atomic"
+	"sync"
+)
+
+var wg sync.WaitGroup
+//Node storage of queue data
+type Node struct {
+	data []byte
+	prev *Node
+	next *Node
+}
+
+//ConcurrentQueue concurrent queue
+type ConcurrentQueue struct {
+	//mutex lock
+	lock *sync.Mutex
+
+	//empty and full locks
+	notEnqueueing *sync.Cond
+	notDequeuing  *sync.Cond
+
+	isEnqueueing atomic.Bool
+	isDequeuing  atomic.Bool
+
+	//queue storage backend
+	backend *QueueBackend
+}
+
+func NewConcurrentQueue() *ConcurrentQueue {
+	queue := ConcurrentQueue{}
+
+	//init mutexes
+	queue.lock = &sync.Mutex{}
+	queue.notEnqueueing = sync.NewCond(queue.lock)
+	queue.notDequeuing = sync.NewCond(queue.lock)
+
+	queue.isEnqueueing.Store(false)
+	queue.isDequeuing.Store(false)
+
+	//init backend
+	queue.backend = &QueueBackend{}
+	queue.backend.size = make(chan int,2)
+	queue.backend.size <- 0
+	queue.backend.head = nil
+	queue.backend.tail = nil
+	queue.backend.lock = &sync.Mutex{}
+
+	return &queue
+}
+
+//QueueBackend Backend storage of the queue, a double linked list
+type QueueBackend struct {
+	//Pointers to root and end
+	head *Node
+	tail *Node
+	//keep track of current size
+	size  chan int
+
+	lock *sync.Mutex
+}
+
+func (queue *QueueBackend) createNode(data []byte) *Node {
+	queue.lock.Lock()
+	node := Node{}
+	node.data = data
+	node.next = nil
+	node.prev = nil
+	queue.lock.Unlock()
+	return &node
+}
+
+func (queue *QueueBackend) put(data []byte) error {
+
+	actualSize := <-queue.size
+
+	if  actualSize == 0 {
+		//new root node
+		node := queue.createNode(data)
+		queue.head = node
+		queue.tail = node
+
+		queue.size <- 0 + len(data)
+
+		return nil
+	}
+	//queue non-empty append to head
+	currentHead := queue.head
+	newHead := queue.createNode(data)
+	newHead.next = currentHead
+	currentHead.prev = newHead
+
+	queue.head = currentHead
+	queue.size <- actualSize + (len(data))
+	return nil
+
+}
+
+func (queue *QueueBackend) pop() ([]byte, error) {
+	queue.lock.Lock()
+	currentEnd := queue.tail
+	newEnd := currentEnd.prev
+	queue.lock.Unlock()
+
+	if newEnd != nil {
+		newEnd.next = nil
+	}
+	queue.size <- <-queue.size - len(currentEnd.data)
+	actualSize := <-queue.size
+
+	if actualSize == 0 {
+		queue.head = nil
+		queue.tail = nil
+	}
+	queue.size <- actualSize
+	return currentEnd.data, nil
+}
+func (c *ConcurrentQueue) Enqueue(data []byte) (*Item, error) {
+	if c.isEnqueueing.Load() {
+		c.notEnqueueing.Wait()
+	}
+	c.isEnqueueing.Toggle()
+	_ = c.backend.put(data)
+	item := &Item{
+		Value: data,
+	}
+	// Signal free
+	c.isEnqueueing.Toggle()
+	c.notEnqueueing.Signal()
+	return item, nil
+}
+
+type Item = queue.Item
+
+func (c *ConcurrentQueue) Dequeue() (*Item, error) {
+	// another goroutine is dequeuing
+	if c.isDequeuing.Load() {
+		c.notDequeuing.Wait()
+	}
+	c.isDequeuing.Toggle()
+	c.lock.Lock()
+	if c.Length() == 0 {
+		c.isDequeuing.Toggle()
+		c.notDequeuing.Signal()
+		c.lock.Unlock()
+		return nil, ErrEmpty
+	}
+	c.lock.Unlock()
+	data, err := c.backend.pop()
+	item := &Item{
+		Value: data,
+	}
+	// Signal free
+	c.isDequeuing.Toggle()
+	c.notDequeuing.Signal()
+	return item, err
+}
+
+func (c *ConcurrentQueue) Length() uint64 {
+
+	size := <-c.backend.size
+	c.backend.size <-size
+	return uint64(size)
+}
+func (c *ConcurrentQueue) Close() {
+
+}
+
+BenchmarkLogzioSenderInmemory-12    	 5290641	       227 ns/op	      78 B/op	       2 allocs/op
+
+BenchmarkLogzioSender-12    	   91461	     15551 ns/op	     928 B/op	      15 allocs/op

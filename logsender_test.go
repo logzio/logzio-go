@@ -787,7 +787,7 @@ func TestLogzioSender_E2E(t *testing.T) {
 
 	fmt.Println("URL:>", url)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	req.Header.Set("X-API-TOKEN", "6c94fd02-8e34-4f0c-bc00-9a42e35171fc")
+	req.Header.Set("X-API-TOKEN", "")
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}

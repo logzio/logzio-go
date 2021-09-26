@@ -58,7 +58,6 @@ type LogzioSender struct {
 	mux            sync.Mutex
 	token          string
 	url            string
-	logzioType     string
 	debug          io.Writer
 	diskThreshold  float32
 	checkDiskSpace bool
@@ -78,12 +77,11 @@ type LogzioSender struct {
 type SenderOptionFunc func(*LogzioSender) error
 
 // New creates a new Logzio sender with a token and options
-func New(token string, logzioType string, options ...SenderOptionFunc) (*LogzioSender, error) {
+func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	l := &LogzioSender{
 		buf:            bytes.NewBuffer(make([]byte, maxSize)),
 		drainDuration:  defaultDrainDuration,
-		url:            fmt.Sprintf("%s/?token=%s?type=%s", defaultHost, token, logzioType),
-		logzioType:     logzioType,
+		url:            fmt.Sprintf("%s/?token=%s", defaultHost, token),
 		token:          token,
 		dir:            fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
 		diskThreshold:  defaultDiskThreshold,
@@ -174,7 +172,7 @@ func SetTempDirectory(dir string) SenderOptionFunc {
 // SetUrl set the url which maybe different from the defaultUrl
 func SetUrl(url string) SenderOptionFunc {
 	return func(l *LogzioSender) error {
-		l.url = fmt.Sprintf("%s/?token=%s&type=%s", url, l.token, l.logzioType)
+		l.url = fmt.Sprintf("%s/?token=%s", url, l.token)
 		l.debugLog("logziosender.go: Setting url to %s\n", l.url)
 		return nil
 	}
@@ -293,6 +291,7 @@ func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) i
 	if c {
 		req.Header.Add("Content-Encoding", "gzip")
 	}
+	l.debugLog("logziosender.go: Sending bulk of %v bytes\n", l.buf.Len())
 	resp, err := l.httpClient.Do(req)
 	if err != nil {
 		//l.debugLog("logziosender.go: Error sending logs to %s %s\n", l.url, err)
@@ -305,6 +304,7 @@ func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) i
 	if err != nil {
 		l.debugLog("Error reading response body: %v", err)
 	}
+	l.debugLog("logziosender.go: Response status code: %v \n", statusCode)
 	if statusCode == 200 {
 		l.droppedLogs = 0
 	}
@@ -356,18 +356,18 @@ func (l *LogzioSender) shouldRetry(statusCode int) bool {
 func (l *LogzioSender) Drain() {
 	if l.draining.Load() {
 		l.debugLog("logziosender.go: Already draining\n")
+		return
 	}
 	l.mux.Lock()
 	l.debugLog("logziosender.go: draining queue\n")
 	defer l.mux.Unlock()
 	l.draining.Toggle()
 	defer l.draining.Toggle()
-
-	l.buf.Reset()
-	var reDrain bool = true
+	var reDrain = true
 	for l.queue.Length() > 0 && reDrain {
-		bufSize := l.dequeueUpToMaxBatchSize()
-		if bufSize > 0 {
+		l.buf.Reset()
+		l.dequeueUpToMaxBatchSize()
+		if len(l.buf.Bytes()) > 0 {
 			backOff := sendSleepingBackoff
 			toBackOff := false
 			for attempt := 0; attempt < sendRetries; attempt++ {
@@ -393,24 +393,23 @@ func (l *LogzioSender) Drain() {
 
 }
 
-func (l *LogzioSender) dequeueUpToMaxBatchSize() int {
+func (l *LogzioSender) dequeueUpToMaxBatchSize() {
 	var (
-		bufSize int
-		err     error
+		err error
 	)
-	for bufSize < maxSize && err == nil {
+	for l.buf.Len() < maxSize && err == nil {
 		item, err := l.queue.Dequeue()
 		if err != nil {
 			l.debugLog("queue state: %s\n", err)
 		}
 		if item != nil {
 			// NewLine is appended tp item.Value
-			if len(item.Value)+bufSize+1 > maxSize {
+			if len(item.Value)+l.buf.Len()+1 >= maxSize {
+				l.queue.Enqueue(item.Value)
 				break
 			}
-			bufSize += len(item.Value)
-			l.debugLog("logziosender.go: Adding item with size %d (total buffSize: %d)\n", len(item.Value), bufSize)
 			_, err := l.buf.Write(append(item.Value, '\n'))
+			//l.debugLog("logziosender.go: Adding item with size %d (total buffSize: %d)\n", len(item.Value), l.buf.Len())
 			if err != nil {
 				l.errorLog("error writing to buffer %s", err)
 			}
@@ -418,7 +417,6 @@ func (l *LogzioSender) dequeueUpToMaxBatchSize() int {
 			break
 		}
 	}
-	return bufSize
 }
 
 // Sync drains the queue

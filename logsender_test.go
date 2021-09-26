@@ -15,11 +15,7 @@
 package logzio
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/tidwall/sjson"
-	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,7 +25,7 @@ import (
 
 // Utils
 const (
-	defaultQueueSize = 40 * 1024 * 1024 // 3mb
+	defaultQueueSize = 40 * 1024 * 1024
 )
 
 // In memory queue tests
@@ -42,7 +38,6 @@ func TestLogzioSender_inMemoryRetries(t *testing.T) {
 	defer ts.Close()
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetDrainDuration(time.Minute*10),
@@ -70,7 +65,6 @@ func TestLogzioSender_inMemoryRetries(t *testing.T) {
 func TestLogzioSender_InMemoryCapacityLimit(t *testing.T) {
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetInMemoryQueue(true),
@@ -107,7 +101,6 @@ func TestLogzioSender_InMemorySend(t *testing.T) {
 	}))
 	defer ts.Close()
 	l, err := New("fake-token",
-		"fake",
 		SetUrl(ts.URL),
 		SetinMemoryCapacity(defaultQueueSize),
 		SetInMemoryQueue(true),
@@ -144,7 +137,6 @@ func TestLogzioSender_InMemoryDrain(t *testing.T) {
 	}))
 	defer ts.Close()
 	l, err := New("fake-token",
-		"fake",
 		SetUrl(ts.URL),
 		SetinMemoryCapacity(defaultQueueSize),
 		SetInMemoryQueue(true),
@@ -174,7 +166,6 @@ func TestLogzioSender_ShouldRetry(t *testing.T) {
 	//var sent = make([]byte, 1024)
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetDrainDuration(time.Minute*10),
@@ -219,7 +210,6 @@ func TestLogzioSender_InMemoryDelayStart(t *testing.T) {
 	defer ts.Close()
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetInMemoryQueue(true),
@@ -261,7 +251,6 @@ func TestLogzioSender_InMemoryUnauth(t *testing.T) {
 	defer ts.Close()
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetCompress(false),
 		SetDrainDuration(time.Minute),
@@ -298,7 +287,6 @@ func TestLogzioSender_InMemoryWrite(t *testing.T) {
 	defer ts.Close()
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetDrainDuration(time.Minute),
 		SetUrl(ts.URL),
@@ -332,7 +320,6 @@ func TestLogzioSender_DequeueUpToMaxBatchSize(t *testing.T) {
 	defer ts.Close()
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetDrainDuration(time.Hour),
 		SetUrl(ts.URL),
@@ -344,13 +331,13 @@ func TestLogzioSender_DequeueUpToMaxBatchSize(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		l.Send(make([]byte, 33000))
 	}
-	bufSize := l.dequeueUpToMaxBatchSize()
+	l.dequeueUpToMaxBatchSize()
 	item, err := l.queue.Dequeue()
 	if item == nil {
 		t.Fatalf("Queue not suposed to bee empty")
 	}
-	if uint64(bufSize) > 3*1024*1024 {
-		t.Fatalf("%d > %d", bufSize, 3*1024*1024)
+	if uint64(len(l.buf.Bytes())) > 3*1024*1024 {
+		t.Fatalf("%d > %d", len(l.buf.Bytes()), 3*1024*1024)
 	}
 
 	l.Stop()
@@ -366,7 +353,6 @@ func TestLogzioSender_Retries(t *testing.T) {
 	defer ts.Close()
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetDrainDuration(time.Minute*10),
@@ -401,7 +387,6 @@ func TestLogzioSender_Send(t *testing.T) {
 	defer ts.Close()
 
 	l, err := New("fake-token",
-		"fake",
 		SetUrl(ts.URL),
 		SetCompress(false),
 	)
@@ -431,7 +416,6 @@ func TestLogzioSender_DelayStart(t *testing.T) {
 	defer ts.Close()
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetCompress(false),
 		SetUrl("http://localhost:12345"),
@@ -468,7 +452,6 @@ func TestLogzioSender_TmpDir(t *testing.T) {
 	tmp := fmt.Sprintf("%s/%d", os.TempDir(), time.Now().Nanosecond())
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
 		SetCompress(false),
@@ -503,7 +486,6 @@ func TestLogzioSender_Write(t *testing.T) {
 	tmp := fmt.Sprintf("%s/%d", os.TempDir(), time.Now().Nanosecond())
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
 		SetCompress(false),
@@ -536,7 +518,6 @@ func TestLogzioSender_RestoreQueue(t *testing.T) {
 	defer ts.Close()
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetDrainDuration(time.Minute*10),
@@ -553,7 +534,6 @@ func TestLogzioSender_RestoreQueue(t *testing.T) {
 	// open queue again - same dir
 	l, err = New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetDrainDuration(time.Minute*10),
@@ -587,7 +567,6 @@ func TestLogzioSender_Unauth(t *testing.T) {
 	tmp := fmt.Sprintf("%s/%d", os.TempDir(), time.Now().Nanosecond())
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetTempDirectory(tmp),
 		SetCompress(false),
@@ -620,7 +599,6 @@ func TestLogzioSender_CountDropped(t *testing.T) {
 	}))
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetDrainDiskThreshold(0),
@@ -655,7 +633,6 @@ func TestLogzioSender_CountDropped(t *testing.T) {
 func TestLogzioSender_ThresholdLimit(t *testing.T) {
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetDrainDiskThreshold(0),
@@ -676,7 +653,6 @@ func TestLogzioSender_ThresholdLimit(t *testing.T) {
 func TestLogzioSender_ThresholdLimitWithoutCheck(t *testing.T) {
 	l, err := New(
 		"fake-token",
-		"fake",
 		SetDebug(os.Stderr),
 		SetUrl("http://localhost:12345"),
 		SetDrainDiskThreshold(0),
@@ -702,7 +678,7 @@ func BenchmarkLogzioSender(b *testing.B) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	l, _ := New("fake-token", "fake", SetUrl(ts.URL),
+	l, _ := New("fake-token", SetUrl(ts.URL),
 		SetDrainDuration(time.Hour))
 	defer ts.Close()
 	defer l.Stop()
@@ -717,7 +693,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	l, _ := New("fake-token", "fake", SetUrl(ts.URL),
+	l, _ := New("fake-token", SetUrl(ts.URL),
 		SetDrainDuration(time.Hour),
 		SetInMemoryQueue(true),
 		SetlogCountLimit(6000000),
@@ -734,72 +710,23 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 //E2E test
 func TestLogzioSender_E2E(t *testing.T) {
 	l, err := New("",
-		"fake",
 		SetInMemoryQueue(true),
 		SetUrl("https://listener.logz.io:8071"),
 		SetDrainDuration(time.Second*5),
+		SetinMemoryCapacity(300*1024*1024),
+		SetlogCountLimit(2000000),
 		SetDebug(os.Stderr),
 	)
 	if err != nil {
 		panic(err)
 	}
-	randomString := fmt.Sprint(rand.Int())
-	msg := fmt.Sprintf("{ \"%s\": \"%s\"}\n{ \"%s\": \"%s\"}", "message", randomString, "type", randomString)
-	l.debugLog("Sending 500 logs...\n")
-	for i := 0; i < 500; i++ {
+	msg := `{"traceID":"0000000000000001","operationName":"o3","spanID":"2a3ad4a54c048830","references":[],"startTime":1632401226891238,"startTimeMillis":1632401226891,"duration":0,"logs":[],"process":{"serviceName":"testService","tags":[]},"type":"jaegerSpan"}`
+	for i := 0; i < 10000; i++ {
 		err := l.Send([]byte(msg))
 		if err != nil {
 			panic(err)
 		}
 	}
-	<-time.After(l.drainDuration)
-
-	apiQuery := `{
-		"query": {
-			"bool": {
-				"must": [{
-	"query_string": {
-	"query": ""
-	}
-	},
-	{
-	"range": {
-	"@timestamp": {
-	"gte": "now-5m",
-	"lte": "now"
-	}
-	}
-	}
-	]
-	}
-	},
-	"size": 1000,
-	"from": 0
-	}`
-
-	url := "https://api.logz.io/v1/search"
-	queryString := fmt.Sprintf("message:%s", randomString)
-	query, _ := sjson.Set(apiQuery, "query.bool.must.0.query_string.query", queryString)
-	var jsonStr = []byte(query)
-
-	l.debugLog("Waiting 40 seconds for ingestion\n")
 	time.Sleep(time.Second * 40)
-
-	fmt.Println("URL:>", url)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	req.Header.Set("X-API-TOKEN", "")
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-
-	fmt.Println("response Status:", resp.Status)
-	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))
 	l.Stop() //logs are buffered on disk. Stop will drain the buffer
 }

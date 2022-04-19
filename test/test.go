@@ -19,7 +19,7 @@ import (
 	"os"
 	"time"
 
-	"logzio-go"
+	"github.com/logzio/logzio-go"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	l.Send([]byte(msg))
+	_ = l.Send([]byte(msg))
 	if err != nil {
 		panic(err)
 	}

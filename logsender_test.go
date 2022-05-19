@@ -728,7 +728,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 func TestLogzioSender_E2E(t *testing.T) {
 	l, err := New("fake",
 		SetInMemoryQueue(true),
-		SetUrl("https://listender.logz.io:8071"),
+		SetUrl("https://lisdtener.logz.io:8071"),
 		SetDrainDuration(time.Second*5),
 		SetinMemoryCapacity(300*1024*1024),
 		SetlogCountLimit(2000000),
@@ -744,5 +744,8 @@ func TestLogzioSender_E2E(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	l.Stop() //logs are buffered on disk. Stop will drain the buffer
+	err = l.Stop()
+	if err != nil {
+		fmt.Println("SFD")
+	} //logs are buffered on disk. Stop will drain the buffer
 }

@@ -371,10 +371,11 @@ func (l *LogzioSender) Drain() error {
 	l.mux.Lock()
 	defer l.mux.Unlock()
 	l.draining.Toggle()
-	defer l.draining.Toggle()
 	var err error = nil
+	var retry = false
+	defer l.draining.Toggle()
 	var reDrain = true
-	for l.queue.Length() > 0 && reDrain && err == nil {
+	for l.queue.Length() > 0 && reDrain {
 		l.buf.Reset()
 		l.dequeueUpToMaxBatchSize()
 		if len(l.buf.Bytes()) > 0 {
@@ -387,7 +388,7 @@ func (l *LogzioSender) Drain() error {
 					backOff *= 2
 				}
 				statusCode := l.tryToSendLogs(attempt)
-				retry, err := l.shouldRetry(statusCode)
+				retry, err = l.shouldRetry(statusCode)
 				if err != nil {
 					l.debugLog("sender: Got HTTP %d %s\n", statusCode, err.Error())
 				}
@@ -399,12 +400,17 @@ func (l *LogzioSender) Drain() error {
 						err = errors.New("error max attempts reached")
 					}
 				} else {
-					reDrain = true
+					if statusCode == 200 {
+						reDrain = true
+					} else {
+						reDrain = false
+					}
 					break
 				}
 			}
 		}
 	}
+
 	return err
 }
 

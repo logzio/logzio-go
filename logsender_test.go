@@ -196,27 +196,27 @@ func TestLogzioSender_ShouldRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Stop()
-	retry := l.shouldRetry(200)
+	retry, _ := l.shouldRetry(200)
 	if retry != false {
 		t.Fatalf("Should be false")
 	}
-	retry = l.shouldRetry(404)
+	retry, _ = l.shouldRetry(404)
 	if retry != false {
 		t.Fatalf("Should be false")
 	}
-	retry = l.shouldRetry(401)
+	retry, _ = l.shouldRetry(401)
 	if retry != false {
 		t.Fatalf("Should be false")
 	}
-	retry = l.shouldRetry(403)
+	retry, _ = l.shouldRetry(403)
 	if retry != false {
 		t.Fatalf("Should be false")
 	}
-	retry = l.shouldRetry(400)
+	retry, _ = l.shouldRetry(400)
 	if retry != false {
 		t.Fatalf("Should be false")
 	}
-	retry = l.shouldRetry(500)
+	retry, _ = l.shouldRetry(500)
 	if retry != true {
 		t.Fatalf("Should be true")
 	}
@@ -728,7 +728,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 func TestLogzioSender_E2E(t *testing.T) {
 	l, err := New("fake",
 		SetInMemoryQueue(true),
-		SetUrl("https://listener.logz.io:8071"),
+		SetUrl("https://listender.logz.io:8071"),
 		SetDrainDuration(time.Second*5),
 		SetinMemoryCapacity(300*1024*1024),
 		SetlogCountLimit(2000000),

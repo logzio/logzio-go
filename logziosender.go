@@ -274,12 +274,13 @@ func (l *LogzioSender) start() {
 }
 
 // Stop will close the LevelDB queue and do a final drain
-func (l *LogzioSender) Stop() {
+func (l *LogzioSender) Stop() error {
 	defer l.queue.Close()
-	l.Drain()
+	err := l.Drain()
 	l.mux.Lock()
 	l.isOpen = false
 	l.mux.Unlock()
+	return err
 }
 
 func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) int {
@@ -331,43 +332,49 @@ func (l *LogzioSender) tryToSendLogs(attempt int) int {
 func (l *LogzioSender) drainTimer() {
 	for l.getIsOpen() {
 		time.Sleep(l.drainDuration)
-		l.Drain()
+		_ = l.Drain()
 	}
 }
 
-func (l *LogzioSender) shouldRetry(statusCode int) bool {
+func (l *LogzioSender) shouldRetry(statusCode int) (bool, error) {
 	retry := true
+	var err error = nil
 	switch statusCode {
 	case http.StatusBadRequest:
-		l.debugLog("sender: Got HTTP %d bad request, skip retry\n", statusCode)
+		//l.debugLog("sender: Got HTTP %d bad request, skip retry\n", statusCode)
 		retry = false
+		err = errors.New("bad request")
 	case http.StatusNotFound:
-		l.debugLog("sender: Got HTTP %d not found, skip retry\n%s", statusCode, errors.New("not found"))
+		//l.debugLog("sender: Got HTTP %d not found, skip retry\n", statusCode)
 		retry = false
+		err = errors.New("not found")
 	case http.StatusUnauthorized:
-		l.debugLog("sender: Got HTTP %d unauthorized, skip retry\n%s", statusCode, errors.New("unauthorized"))
+		//l.debugLog("sender: Got HTTP %d unauthorized, skip retry\n", statusCode)
 		retry = false
+		err = errors.New("unauthorized")
 	case http.StatusForbidden:
-		l.debugLog("sender: Got HTTP %d forbidden, skip retry\n%s", statusCode, errors.New("forbidden"))
+		//l.debugLog("sender: Got HTTP %d forbidden, skip retry\n", statusCode)
 		retry = false
+		err = errors.New("forbidden")
 	case http.StatusOK:
 		retry = false
 	}
-	return retry
+	return retry, err
 }
 
 // Drain - Send remaining logs
-func (l *LogzioSender) Drain() {
+func (l *LogzioSender) Drain() error {
 	if l.draining.Load() {
 		l.debugLog("sender: Already draining\n")
-		return
+		return nil
 	}
 	l.mux.Lock()
 	defer l.mux.Unlock()
 	l.draining.Toggle()
 	defer l.draining.Toggle()
+	var err error = nil
 	var reDrain = true
-	for l.queue.Length() > 0 && reDrain {
+	for l.queue.Length() > 0 && reDrain && err == nil {
 		l.buf.Reset()
 		l.dequeueUpToMaxBatchSize()
 		if len(l.buf.Bytes()) > 0 {
@@ -380,11 +387,16 @@ func (l *LogzioSender) Drain() {
 					backOff *= 2
 				}
 				statusCode := l.tryToSendLogs(attempt)
-				if l.shouldRetry(statusCode) {
+				retry, err := l.shouldRetry(statusCode)
+				if err != nil {
+					l.debugLog("sender: Got HTTP %d %s\n", statusCode, err.Error())
+				}
+				if retry {
 					toBackOff = true
 					if attempt == (sendRetries - 1) {
 						l.requeue()
 						reDrain = false
+						err = errors.New("error max attempts reached")
 					}
 				} else {
 					reDrain = true
@@ -393,6 +405,7 @@ func (l *LogzioSender) Drain() {
 			}
 		}
 	}
+	return err
 }
 
 func (l *LogzioSender) dequeueUpToMaxBatchSize() {
@@ -422,8 +435,8 @@ func (l *LogzioSender) dequeueUpToMaxBatchSize() {
 
 // Sync drains the queue
 func (l *LogzioSender) Sync() error {
-	l.Drain()
-	return nil
+	err := l.Drain()
+	return err
 }
 
 func (l *LogzioSender) requeue() {

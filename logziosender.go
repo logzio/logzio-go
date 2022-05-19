@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"github.com/beeker1121/goque"
 	"github.com/logzio/logzio-go/inMemoryQueue"
@@ -341,13 +342,13 @@ func (l *LogzioSender) shouldRetry(statusCode int) bool {
 		l.debugLog("sender: Got HTTP %d bad request, skip retry\n", statusCode)
 		retry = false
 	case http.StatusNotFound:
-		l.debugLog("sender: Got HTTP %d not found, skip retry\n", statusCode)
+		l.debugLog("sender: Got HTTP %d not found, skip retry\n%s", statusCode, errors.New("not found"))
 		retry = false
 	case http.StatusUnauthorized:
-		l.debugLog("sender: Got HTTP %d unauthorized, skip retry\n", statusCode)
+		l.debugLog("sender: Got HTTP %d unauthorized, skip retry\n%s", statusCode, errors.New("unauthorized"))
 		retry = false
 	case http.StatusForbidden:
-		l.debugLog("sender: Got HTTP %d forbidden, skip retry\n", statusCode)
+		l.debugLog("sender: Got HTTP %d forbidden, skip retry\n%s", statusCode, errors.New("forbidden"))
 		retry = false
 	case http.StatusOK:
 		retry = false
@@ -392,7 +393,6 @@ func (l *LogzioSender) Drain() {
 			}
 		}
 	}
-
 }
 
 func (l *LogzioSender) dequeueUpToMaxBatchSize() {

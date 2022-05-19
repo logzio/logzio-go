@@ -726,7 +726,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 
 //E2E test
 func TestLogzioSender_E2E(t *testing.T) {
-	l, err := New("",
+	l, err := New("fake",
 		SetInMemoryQueue(true),
 		SetUrl("https://listener.logz.io:8071"),
 		SetDrainDuration(time.Second*5),
@@ -744,6 +744,5 @@ func TestLogzioSender_E2E(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	time.Sleep(time.Second * 40)
 	l.Stop() //logs are buffered on disk. Stop will drain the buffer
 }

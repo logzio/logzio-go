@@ -165,6 +165,7 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
     - Update dependencies:
       - `github.com/shirou/gopsutil/v3`: `v3.22.3` -> `v3.24.2`
       - `go.uber.org/atomic`: `v1.9.0` -> `v1.11.0`
+    - Update go version `1.15` -> `1.20`
 - v1.0.6
     - Change logging
     - Remove draining queue log

@@ -130,6 +130,14 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 	return l, nil
 }
 
+// SetHttpClient to change the default http client
+func SetHttpClient(client *http.Client) SenderOptionFunc {
+	return func(l *LogzioSender) error {
+		l.httpClient = client
+		return nil
+	}
+}
+
 // SetlogCountLimit to change the default limit
 func SetlogCountLimit(limit int) SenderOptionFunc {
 	return func(l *LogzioSender) error {

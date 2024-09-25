@@ -460,3 +460,25 @@ func (l *LogzioSender) Write(p []byte) (n int, err error) {
 func (l *LogzioSender) CloseIdleConnections() {
 	l.httpTransport.CloseIdleConnections()
 }
+
+// AwaitDrain waits for the sender to finish flushing all data up to a provided timeout
+func (l *LogzioSender) AwaitDrain(timeout time.Duration) bool {
+	l.Drain()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	timeoutChan := time.After(timeout)
+
+	for {
+		select {
+		case <-ticker.C:
+			if !l.draining.Load() {
+				return true // nothing to drain
+			}
+		case <-timeoutChan:
+			l.errorLog("Timed out while waiting for draining to complete\n")
+			return false
+		}
+	}
+}

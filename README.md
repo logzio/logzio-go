@@ -159,7 +159,8 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 
 
 ## Changelog 
-
+- v1.0.8
+    - Add `AwaitDrain` function to support ensuring all logs are drained in synchronous runtimes
 - v1.0.7
     - Added set http client option (@orelazar1)
     - Update dependencies:

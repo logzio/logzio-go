@@ -330,7 +330,7 @@ func TestLogzioSender_InMemoryWrite(t *testing.T) {
 	l.Stop()
 }
 
-//dequeueUpToMaxBatchSize
+// dequeueUpToMaxBatchSize
 func TestLogzioSender_DequeueUpToMaxBatchSize(t *testing.T) {
 	var sent = make([]byte, 1024)
 	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -724,7 +724,7 @@ func BenchmarkLogzioSenderInmemory(b *testing.B) {
 	}
 }
 
-//E2E test
+// E2E test
 func TestLogzioSender_E2E(t *testing.T) {
 	l, err := New("",
 		SetInMemoryQueue(true),
@@ -746,4 +746,39 @@ func TestLogzioSender_E2E(t *testing.T) {
 	}
 	time.Sleep(time.Second * 40)
 	l.Stop() //logs are buffered on disk. Stop will drain the buffer
+}
+
+func TestLogzioSender_AwaitDrain(t *testing.T) {
+	var sent = make([]byte, 1024)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		r.Body.Read(sent)
+	}))
+	defer ts.Close()
+
+	l, err := New("fake-token",
+		SetUrl(ts.URL),
+		SetCompress(false),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(l.dir)
+
+	l.Send([]byte("blah"))
+	drainSuccess := l.AwaitDrain(time.Second)
+	if !drainSuccess {
+		t.Fatal("AwaitDrain timed out")
+	}
+
+	sentMsg := string(sent[0:5])
+	if sentMsg != "blah\n" {
+		t.Fatalf("%s != %s ", sent, sentMsg)
+	}
+
+	l.Send([]byte("blah2"))
+	drainSuccess = l.AwaitDrain(time.Millisecond)
+	if drainSuccess {
+		t.Fatal("Expected AwaitDrain to timeout but it did not")
+	}
 }

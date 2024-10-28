@@ -297,6 +297,10 @@ func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) i
 		lost = "0"
 	}
 	req, err := http.NewRequest("POST", l.url, &data)
+	if err != nil {
+		l.debugLog("sender: Error creating HTTP request for %s %s\n", l.url, err)
+		return httpError
+	}
 	req.Header.Add("Content-Type", "text/plain")
 	req.Header.Add("logzio-shipper", fmt.Sprintf("logzio-go/v1.0.0/%d/%s", attempt, lost))
 	if c {

@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+jobs:
+  test:
+    name: Test Go ${{ matrix.go-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.20', '1.21', '1.22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Get dependencies
+        run: go mod download
+
+      - name: Run tests with coverage
+        run: |
+          go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Upload coverage to Codecov
+        if: matrix.go-version == '1.22'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+
+  e2e-integration:
+    name: E2E Integration Test
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      LOGZIO_TOKEN: ${{ secrets.LOGZIO_TOKEN }}
+      LOGZIO_API_KEY: ${{ secrets.LOGZIO_API_KEY }}
+      LOGZIO_API_URL: ${{ secrets.LOGZIO_API_URL }}
+      ENV_ID: e2e-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Check required secrets
+        id: check-secrets
+        run: |
+          if [ -z "$LOGZIO_TOKEN" ] || [ -z "$LOGZIO_API_KEY" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Skipping E2E tests - LOGZIO_TOKEN or LOGZIO_API_KEY not configured"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run E2E test - Send logs to Logz.io
+        if: steps.check-secrets.outputs.skip != 'true'
+        run: |
+          go run .github/workflows/e2e/main.go send
+
+      - name: Wait for log ingestion
+        if: steps.check-secrets.outputs.skip != 'true'
+        run: sleep 180
+
+      - name: Verify logs in Logz.io
+        if: steps.check-secrets.outputs.skip != 'true'
+        run: |
+          go run .github/workflows/e2e/main.go verify
+
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [test, e2e-integration]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "❌ Test job failed"
+            exit 1
+          fi
+          # E2E can be skipped for external PRs or if secrets aren't configured
+          if [ "${{ needs.e2e-integration.result }}" != "success" ] && [ "${{ needs.e2e-integration.result }}" != "skipped" ]; then
+            echo "❌ E2E integration job failed"
+            exit 1
+          fi
+          echo "✅ All required jobs passed!"
+

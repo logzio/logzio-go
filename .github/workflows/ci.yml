@@ -55,26 +55,23 @@ jobs:
           go-version: '1.22'
 
       - name: Check required secrets
-        id: check-secrets
         run: |
           if [ -z "$LOGZIO_TOKEN" ] || [ -z "$LOGZIO_API_KEY" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "⚠️ Skipping E2E tests - LOGZIO_TOKEN or LOGZIO_API_KEY not configured"
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "❌ E2E tests require LOGZIO_TOKEN and LOGZIO_API_KEY secrets"
+            echo "Please configure these secrets in Settings → Secrets and variables → Actions"
+            echo "For Dependabot PRs, also configure in Settings → Secrets and variables → Dependabot"
+            exit 1
           fi
+          echo "✅ Required secrets are configured"
 
       - name: Run E2E test - Send logs to Logz.io
-        if: steps.check-secrets.outputs.skip != 'true'
         run: |
           go run .github/workflows/e2e/main.go send
 
       - name: Wait for log ingestion
-        if: steps.check-secrets.outputs.skip != 'true'
         run: sleep 180
 
       - name: Verify logs in Logz.io
-        if: steps.check-secrets.outputs.skip != 'true'
         run: |
           go run .github/workflows/e2e/main.go verify
 
@@ -90,8 +87,8 @@ jobs:
             echo "❌ Test job failed"
             exit 1
           fi
-          if [ "${{ needs.e2e-integration.result }}" != "success" ] && [ "${{ needs.e2e-integration.result }}" != "skipped" ]; then
-            echo "❌ E2E integration job failed"
+          if [ "${{ needs.e2e-integration.result }}" != "success" ]; then
+            echo "❌ E2E integration job failed or was skipped"
             exit 1
           fi
           echo "✅ All required jobs passed!"

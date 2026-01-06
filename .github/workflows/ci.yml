@@ -90,7 +90,6 @@ jobs:
             echo "❌ Test job failed"
             exit 1
           fi
-          # E2E can be skipped for external PRs or if secrets aren't configured
           if [ "${{ needs.e2e-integration.result }}" != "success" ] && [ "${{ needs.e2e-integration.result }}" != "skipped" ]; then
             echo "❌ E2E integration job failed"
             exit 1

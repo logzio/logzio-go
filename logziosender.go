@@ -59,6 +59,7 @@ type LogzioSender struct {
 	token          string
 	url            string
 	debug          io.Writer
+	errorOutput    io.Writer
 	diskThreshold  float32
 	checkDiskSpace bool
 	dir            string
@@ -84,6 +85,7 @@ func New(token string, options ...SenderOptionFunc) (*LogzioSender, error) {
 		url:            fmt.Sprintf("%s/?token=%s", defaultHost, token),
 		token:          token,
 		dir:            fmt.Sprintf("%s%s%s%s%d", os.TempDir(), string(os.PathSeparator), "logzio-buffer", string(os.PathSeparator), time.Now().UnixNano()),
+		errorOutput:    os.Stderr,
 		diskThreshold:  defaultDiskThreshold,
 		checkDiskSpace: defaultCheckDiskSpace,
 		compress:       true,
@@ -197,6 +199,16 @@ func SetDebug(debug io.Writer) SenderOptionFunc {
 	}
 }
 
+// SetErrorOutput sets the writer that receives error-level messages such as
+// transport/network failures, non-retryable HTTP responses and dropped logs.
+// It defaults to os.Stderr. Pass nil to silence error output entirely.
+func SetErrorOutput(errorOutput io.Writer) SenderOptionFunc {
+	return func(l *LogzioSender) error {
+		l.errorOutput = errorOutput
+		return nil
+	}
+}
+
 // SetDrainDuration to change the interval between drains
 func SetDrainDuration(duration time.Duration) SenderOptionFunc {
 	return func(l *LogzioSender) error {
@@ -237,7 +249,7 @@ func (l *LogzioSender) isEnoughDiskSpace() bool {
 
 		usage := float32(diskStat.UsedPercent)
 		if usage > l.diskThreshold {
-			l.debugLog("sender: Dropping logs, as FS used space on %s is %g percent,"+
+			l.errorLog("sender: Dropping logs, as FS used space on %s is %g percent,"+
 				" and the drop threshold is %g percent\n",
 				l.dir, usage, l.diskThreshold)
 			l.droppedLogs++
@@ -253,7 +265,7 @@ func (l *LogzioSender) isEnoughDiskSpace() bool {
 func (l *LogzioSender) isEnoughMemory(dataSize uint64) bool {
 	usage := l.queue.Length()
 	if usage+dataSize >= l.inMemoryCapacity {
-		l.debugLog("sender: Dropping logs, the max capacity is %d and %d is requested, Request size: %d\n", l.inMemoryCapacity, usage+dataSize, dataSize)
+		l.errorLog("sender: Dropping logs, the max capacity is %d and %d is requested, Request size: %d\n", l.inMemoryCapacity, usage+dataSize, dataSize)
 		l.droppedLogs++
 		return false
 	} else {
@@ -298,7 +310,7 @@ func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) i
 	}
 	req, err := http.NewRequest("POST", l.url, &data)
 	if err != nil {
-		l.debugLog("sender: Error creating HTTP request for %s %s\n", l.url, err)
+		l.errorLog("sender: Error creating HTTP request for %s %s\n", l.url, err)
 		return httpError
 	}
 	req.Header.Add("Content-Type", "text/plain")
@@ -309,7 +321,7 @@ func (l *LogzioSender) makeHttpRequest(data bytes.Buffer, attempt int, c bool) i
 	l.debugLog("sender: Sending bulk of %v bytes\n", l.buf.Len())
 	resp, err := l.httpClient.Do(req)
 	if err != nil {
-		l.debugLog("sender: Error sending logs to %s %s\n", l.url, err)
+		l.errorLog("sender: Error sending logs to %s %s\n", l.url, err)
 		return httpError
 	}
 
@@ -350,16 +362,16 @@ func (l *LogzioSender) shouldRetry(statusCode int) bool {
 	retry := true
 	switch statusCode {
 	case http.StatusBadRequest:
-		l.debugLog("sender: Got HTTP %d bad request, skip retry\n", statusCode)
+		l.errorLog("sender: Got HTTP %d bad request, skip retry\n", statusCode)
 		retry = false
 	case http.StatusNotFound:
-		l.debugLog("sender: Got HTTP %d not found, skip retry\n", statusCode)
+		l.errorLog("sender: Got HTTP %d not found, skip retry\n", statusCode)
 		retry = false
 	case http.StatusUnauthorized:
-		l.debugLog("sender: Got HTTP %d unauthorized, skip retry\n", statusCode)
+		l.errorLog("sender: Got HTTP %d unauthorized, skip retry\n", statusCode)
 		retry = false
 	case http.StatusForbidden:
-		l.debugLog("sender: Got HTTP %d forbidden, skip retry\n", statusCode)
+		l.errorLog("sender: Got HTTP %d forbidden, skip retry\n", statusCode)
 		retry = false
 	case http.StatusOK:
 		retry = false
@@ -453,7 +465,9 @@ func (l *LogzioSender) debugLog(format string, a ...interface{}) {
 }
 
 func (l *LogzioSender) errorLog(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, a...)
+	if l.errorOutput != nil {
+		fmt.Fprintf(l.errorOutput, format, a...)
+	}
 }
 
 func (l *LogzioSender) Write(p []byte) (n int, err error) {

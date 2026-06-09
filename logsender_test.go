@@ -15,10 +15,12 @@
 package logzio
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -57,6 +59,95 @@ func TestLogzioSender_SetUrl(t *testing.T) {
 	if l2.url != "http://localhost:12345/?token=token" {
 		t.Fatalf("url should be http://localhost:12345/?token=token, actual: %s", l.url)
 	}
+}
+
+func TestLogzioSender_ErrorOutputDefault(t *testing.T) {
+	l, err := New(
+		"fake-token",
+		SetUrl("http://localhost:12345"),
+		SetInMemoryQueue(true),
+		SetDrainDuration(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Stop()
+	if l.errorOutput != os.Stderr {
+		t.Fatalf("errorOutput should default to os.Stderr")
+	}
+}
+
+func TestLogzioSender_SetErrorOutput(t *testing.T) {
+	var buf bytes.Buffer
+	l, err := New(
+		"fake-token",
+		SetErrorOutput(&buf),
+		SetUrl("http://localhost:12345"),
+		SetInMemoryQueue(true),
+		SetDrainDuration(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Stop()
+	if l.errorOutput != &buf {
+		t.Fatalf("errorOutput should be the writer passed to SetErrorOutput")
+	}
+}
+
+// A non-retryable HTTP failure must surface on the error output, even when
+// debug logging is disabled.
+func TestLogzioSender_ErrorOutputOnUnauth(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer ts.Close()
+
+	var buf bytes.Buffer
+	l, err := New(
+		"fake-token",
+		SetErrorOutput(&buf),
+		SetUrl(ts.URL),
+		SetInMemoryQueue(true),
+		SetCompress(false),
+		SetDrainDuration(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Stop()
+
+	l.Send([]byte("blah"))
+	l.Drain()
+
+	out := buf.String()
+	if !strings.Contains(out, "unauthorized") {
+		t.Fatalf("expected unauthorized error on error output, got: %q", out)
+	}
+}
+
+// SetErrorOutput(nil) silences error output without panicking.
+func TestLogzioSender_ErrorOutputNilSilences(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer ts.Close()
+
+	l, err := New(
+		"fake-token",
+		SetErrorOutput(nil),
+		SetUrl(ts.URL),
+		SetInMemoryQueue(true),
+		SetCompress(false),
+		SetDrainDuration(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Stop()
+
+	l.Send([]byte("blah"))
+	l.Drain() // must not panic with a nil error writer
 }
 
 // In memory queue tests

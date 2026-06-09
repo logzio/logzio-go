@@ -102,6 +102,9 @@ func main() {
 - Set debug mode:
     `logzio.New(token, SetDebug(os.Stderr))`
 
+- Set error output. Transport/network failures, non-retryable HTTP responses and dropped logs are written here at error level (independently of debug mode). Defaults to `os.Stderr`; pass `nil` to silence:
+    `logzio.New(token, SetErrorOutput(os.Stderr))`
+
 - Set queue dir:
     `logzio.New(token, SetSetTempDirectory(os.Stderr))`
 
@@ -159,6 +162,10 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 
 
 ## Changelog 
+- v1.0.10
+    - Add `SetErrorOutput(io.Writer)` option to direct error-level messages to a configurable writer (defaults to `os.Stderr`; pass `nil` to silence).
+    - Emit transport/network send failures, non-retryable HTTP responses (400/401/403/404) and dropped-log events at error level instead of only debug level.
+    - **Behavior change:** these failure and dropped-log events were previously logged via `debug` and only appeared when `SetDebug` was enabled. They are now written to `os.Stderr` by default, so after upgrading you may see new stderr output on transient send failures and queue drops. To silence error output entirely, pass `logzio.SetErrorOutput(nil)`; to redirect it, pass your own `io.Writer`.
 - v1.0.9
     - Update dependencies:
       - `github.com/shirou/gopsutil/v3`: `v3.24.2` -> `v3.24.5`

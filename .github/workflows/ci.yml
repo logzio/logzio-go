@@ -17,7 +17,7 @@ jobs:
       matrix:
         go-version: ['1.20', '1.21', '1.22']
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Go ${{ matrix.go-version }}
         uses: actions/setup-go@v6
@@ -50,7 +50,7 @@ jobs:
       ENV_ID: e2e-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v6

@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/beeker1121/goque v2.1.0+incompatible
 	github.com/shirou/gopsutil/v3 v3.24.5
-	go.uber.org/atomic v1.11.0
+	go.uber.org/atomic v1.12.0
 )
 
 require (
